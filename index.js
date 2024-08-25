@@ -15,7 +15,7 @@ connectDB();
 app.use(express.json());
 
 app.use(cors({
-    origin: 'http://localhost:4200', // Permite solicitudes desde este origen
+    origin: 'https://sistema-adopcion.netlify.app', // Permite solicitudes desde este origen
     methods: ['GET', 'POST', 'PUT', 'DELETE'], // Métodos permitidos
     allowedHeaders: ['Content-Type', 'Authorization'] // Encabezados permitidos
 }));
