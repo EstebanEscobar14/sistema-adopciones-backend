@@ -3,17 +3,63 @@ import Adopcion from "../models/adopcion.model.js";
 // Crear adopción
 export async function crearAdopcion(req, res) {
   try {
-    const nuevaAdopcion = new Adopcion({
-      usuario: req.user.id,
-      ...req.body,
-    });
+    let result;
 
-    await nuevaAdopcion.save();
+    if (Array.isArray(req.body)) {
+      const adopcionesConUsuario = req.body.map((item) => ({
+        ...item,
+        usuario: req.user.id,
+      }));
+      result = await Adopcion.insertMany(adopcionesConUsuario);
+    } else {
+      const {
+        nombre,
+        raza,
+        categoria,
+        peso,
+        descripcion,
+        fechaNacimiento,
+        vacunado,
+        adoptable,
+        imagen,
+        esterilizado,
+        actividad,
+        socializacion,
+        lat,
+        lng,
+        ubicacion // Nuevo
+      } = req.body;
+
+      if (!nombre || !raza || !categoria || !peso || !descripcion) {
+        return res.status(400).json({ msg: "Faltan campos requeridos" });
+      }
+
+      const nuevaAdopcion = new Adopcion({
+        usuario: req.user.id,
+        nombre,
+        raza,
+        categoria,
+        peso: Number(peso),
+        descripcion,
+        fechaNacimiento: fechaNacimiento ? new Date(fechaNacimiento) : undefined,
+        vacunado: vacunado ?? false,
+        adoptable: adoptable ?? true,
+        esterilizado: esterilizado ?? false,
+        actividad: actividad ?? undefined,
+        socializacion: socializacion ?? undefined,
+        imagen,
+        lat: lat ? Number(lat) : undefined,
+        lng: lng ? Number(lng) : undefined,
+        ubicacion // Nuevo
+      });
+
+      result = await nuevaAdopcion.save();
+    }
 
     res.status(201).json({
       status: 201,
-      message: "Adopción creada exitosamente",
-      data: nuevaAdopcion,
+      message: "Adopción(es) creada(s) exitosamente",
+      data: result,
     });
   } catch (error) {
     console.error("Error al crear adopción:", error);
@@ -24,19 +70,38 @@ export async function crearAdopcion(req, res) {
 // Obtener todas las adopciones (de todos)
 export async function obtenerAdopciones(req, res) {
   try {
+    const page = parseInt(req.query.page) || 1; // Página actual, por defecto 1
+    const limit = parseInt(req.query.limit) || 12; // Límite por página, por defecto 12
+    const skip = (page - 1) * limit; // Calcular documentos a saltar
+
+    // Obtener adopciones con paginación
     const adopciones = await Adopcion.find()
       .populate("usuario", "username")
       .populate("comentarios.usuario", "username")
       .populate("likes", "username")
-      .sort({ fechaCreacion: -1 });
+      .sort({ fechaCreacion: -1 })
+      .skip(skip)
+      .limit(limit);
 
-    // Agregar likesCount a cada adopción
+    // Contar el total de adopciones
+    const total = await Adopcion.countDocuments();
+
+    // Mapear resultados con likesCount
     const resultado = adopciones.map((adopcion) => ({
       data: adopcion,
       likesCount: adopcion.likes.length,
     }));
 
-    res.json(resultado);
+    // Enviar respuesta con datos y metadatos
+    res.json({
+      data: resultado,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    });
   } catch (error) {
     console.error("Error al obtener adopciones:", error);
     res.status(500).json({ msg: "Error al obtener adopciones" });
@@ -46,24 +111,43 @@ export async function obtenerAdopciones(req, res) {
 // Obtener adopciones solo del usuario autenticado (opcional)
 export async function obtenerAdopcionesUsuario(req, res) {
   try {
+    const page = parseInt(req.query.page) || 1; // Página actual, por defecto 1
+    const limit = parseInt(req.query.limit) || 10; // Límite por página, por defecto 10
+    const skip = (page - 1) * limit; // Calcular documentos a saltar
+
+    // Obtener adopciones del usuario con paginación
     const adopciones = await Adopcion.find({ usuario: req.user.id })
       .populate("usuario", "username")
       .populate("comentarios.usuario", "username")
       .populate("likes", "username")
-      .sort({ fechaCreacion: -1 });
+      .sort({ fechaCreacion: -1 })
+      .skip(skip)
+      .limit(limit);
 
-    const resultado = adopciones.map(adopcion => ({
+    // Contar el total de adopciones del usuario
+    const total = await Adopcion.countDocuments({ usuario: req.user.id });
+
+    // Mapear resultados con likesCount
+    const resultado = adopciones.map((adopcion) => ({
       data: adopcion,
       likesCount: adopcion.likes.length,
     }));
 
-    res.json(resultado);
+    // Enviar respuesta con datos y metadatos
+    res.json({
+      data: resultado,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    });
   } catch (error) {
     console.error("Error al obtener adopciones de usuario:", error);
     res.status(500).json({ msg: "Error al obtener adopciones de usuario" });
   }
 }
-
 
 // Obtener una adopción por id
 export async function obtenerAdopcion(req, res) {
@@ -86,7 +170,6 @@ export async function obtenerAdopcion(req, res) {
   }
 }
 
-
 // Actualizar adopción - solo dueño
 export async function actualizarAdopcion(req, res) {
   try {
@@ -95,14 +178,31 @@ export async function actualizarAdopcion(req, res) {
       .populate("comentarios.usuario", "username")
       .populate("likes", "username");
 
-    if (!adopcion)
+    if (!adopcion) {
       return res.status(404).json({ msg: "Adopción no encontrada" });
+    }
 
     if (adopcion.usuario._id.toString() !== req.user.id) {
       return res.status(403).json({ msg: "No autorizado" });
     }
 
-    const { nombre, raza, categoria, imagen, peso, descripcion } = req.body;
+    const {
+      nombre,
+      raza,
+      categoria,
+      imagen,
+      peso,
+      descripcion,
+      fechaNacimiento,
+      vacunado,
+      adoptable,
+      esterilizado,
+      actividad,
+      socializacion,
+      lat,
+      lng,
+      ubicacion // Nuevo
+    } = req.body;
 
     adopcion.nombre = nombre || adopcion.nombre;
     adopcion.raza = raza || adopcion.raza;
@@ -110,6 +210,15 @@ export async function actualizarAdopcion(req, res) {
     adopcion.descripcion = descripcion || adopcion.descripcion;
     adopcion.imagen = imagen || adopcion.imagen;
     adopcion.peso = peso || adopcion.peso;
+    adopcion.fechaNacimiento = fechaNacimiento || adopcion.fechaNacimiento;
+    adopcion.vacunado = vacunado ?? adopcion.vacunado;
+    adopcion.adoptable = adoptable ?? adopcion.adoptable;
+    adopcion.esterilizado = esterilizado ?? adopcion.esterilizado;
+    adopcion.actividad = actividad ?? adopcion.actividad;
+    adopcion.socializacion = socializacion ?? adopcion.socializacion;
+    adopcion.lat = lat ?? adopcion.lat; // Nuevo
+    adopcion.lng = lng ?? adopcion.lng; // Nuevo
+    adopcion.ubicacion = ubicacion ?? adopcion.ubicacion; // Nuevo
 
     await adopcion.save();
 
@@ -122,7 +231,6 @@ export async function actualizarAdopcion(req, res) {
     res.status(500).json({ msg: "Error al actualizar adopción" });
   }
 }
-
 
 // Eliminar adopción - solo dueño
 export async function eliminarAdopcion(req, res) {
