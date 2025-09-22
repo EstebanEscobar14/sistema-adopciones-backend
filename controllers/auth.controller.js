@@ -44,9 +44,46 @@ export async function login(req, res) {
       { expiresIn: "1h" }
     );
 
-    res.json({ token, role: user.role, id: user._id });
+    const refreshToken = jwt.sign(
+      { id: user._id },
+      process.env.JWT_REFRESH_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    res.json({ token, refreshToken, role: user.role, id: user._id });
   } catch (error) {
     console.error("Error en login:", error);
     res.status(500).json({ msg: "Error al autenticar usuario" });
+  }
+  
+}
+
+export async function refreshToken(req, res) {
+  const { refreshToken } = req.body;
+
+  if (!refreshToken) {
+    return res.status(401).json({ msg: 'No refresh token provided' });
+  }
+
+  try {
+    // Verificar el refresh token
+    const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
+    const user = await User.findById(decoded.id);
+
+    if (!user) {
+      return res.status(401).json({ msg: 'Usuario no encontrado' });
+    }
+
+    // Generar un nuevo access token
+    const newAccessToken = jwt.sign(
+      { username: user.username, id: user._id, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: '1h' }
+    );
+
+    res.json({ token: newAccessToken });
+  } catch (error) {
+    console.error('Error al refrescar token:', error);
+    res.status(403).json({ msg: 'Invalid refresh token' });
   }
 }
