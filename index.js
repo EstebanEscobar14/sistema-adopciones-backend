@@ -3,7 +3,6 @@ import connectDB from "./config/db.js";
 import authRoutes from "./routes/auth.routes.js";
 import adopcionRoutes from "./routes/adopcion.routes.js";
 import reservaRoutes from "./routes/reserva.routes.js";
-import breedsRoutes from "./routes/breeds.routes.js"; // <-- importar la nueva ruta
 import cors from "cors";
 
 // Creamos el servidor
@@ -43,7 +42,6 @@ app.use(
 app.use("/api/adopcion", adopcionRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/reserva", reservaRoutes);
-app.use("/api/breeds", breedsRoutes);
 
 // Levantamos el servidor
 app.listen(4000, () => {

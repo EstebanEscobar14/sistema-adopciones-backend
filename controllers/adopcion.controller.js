@@ -237,14 +237,16 @@ export async function eliminarAdopcion(req, res) {
   try {
     const adopcion = await Adopcion.findById(req.params.id);
 
-    if (!adopcion)
+    if (!adopcion) {
       return res.status(404).json({ msg: "Adopción no encontrada" });
+    }
 
     if (adopcion.usuario.toString() !== req.user.id) {
       return res.status(403).json({ msg: "No autorizado" });
     }
 
-    await adopcion.remove();
+    // Usar deleteOne() en lugar de remove()
+    await Adopcion.deleteOne({ _id: req.params.id });
 
     res.json({ msg: "Adopción eliminada" });
   } catch (error) {
