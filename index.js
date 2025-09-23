@@ -17,24 +17,12 @@ app.use(express.json());
 app.use(express.json({ limit: '10mb' })); // Aumenta a 10 MB
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
-// Lista de orígenes permitidos
-const allowedOrigins = [
-  "http://localhost:4200",
-  "https://sistema-adopcion.netlify.app",
-];
-
 app.use(
   cors({
-    origin: function (origin, callback) {
-      if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error("No permitido por CORS"));
-      }
-    },
+    origin: "*", // Permite solicitudes desde cualquier origen
     methods: ["GET", "POST", "PUT", "DELETE"],
     allowedHeaders: ["Content-Type", "Authorization"],
-    credentials: true,
+    credentials: true, // Mantén esto solo si necesitas enviar cookies o credenciales
   })
 );
 
